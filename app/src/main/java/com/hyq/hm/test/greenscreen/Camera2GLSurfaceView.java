@@ -35,6 +35,7 @@ import java.util.List;
 
 import javax.microedition.khronos.opengles.GL;
 
+@Deprecated
 public class Camera2GLSurfaceView extends GLSurfaceView {
 
     private EGLUtils  mEglUtils = new EGLUtils();

@@ -30,7 +30,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-
+@Deprecated
 public class Camera2TextureView extends TextureView {
 
     private Listener listener;

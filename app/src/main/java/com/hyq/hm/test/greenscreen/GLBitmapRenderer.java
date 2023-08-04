@@ -11,7 +11,7 @@ import java.nio.FloatBuffer;
 /**
  * Created by 海米 on 2017/8/16.
  */
-
+@Deprecated
 public class GLBitmapRenderer {
     private int programId = -1;
     private int aPositionHandle;

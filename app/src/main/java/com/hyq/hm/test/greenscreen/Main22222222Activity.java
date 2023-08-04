@@ -13,7 +13,7 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
-
+@Deprecated
 public class Main22222222Activity extends AppCompatActivity {
     private Camera2SurfaceView cameraView;
     private PointView pointView;

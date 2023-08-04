@@ -6,6 +6,9 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
@@ -16,6 +19,7 @@ import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.opengl.GLES20;
+import android.opengl.GLSurfaceView;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.AttributeSet;
@@ -51,6 +55,9 @@ public class Camera2SurfaceView extends SurfaceView {
     private CameraDevice mCameraDevice;
     private Handler mHandler;
 
+    private Runnable _runnable = new SurfaceRunnable();
+    private Runnable _stoppable = new SurfaceStoppable();
+
     private int screenWidth = -1, screenHeight,previewWidth,previewHeight;
     private Rect rect = new Rect();
 
@@ -63,120 +70,56 @@ public class Camera2SurfaceView extends SurfaceView {
 
     public Camera2SurfaceView(Context context) {
         super(context);
-        init();
+//        init();
     }
 
     public Camera2SurfaceView(Context context, AttributeSet attrs) {
         super(context, attrs);
+//        init();
+    }
+
+    private Bitmap bitmap = null;
+    public void setBitmap(Bitmap bitmap) {
+//        this.bitmap = bitmap;
+        imageRenderer.setBitmap(bitmap);
+//        cameraHandler.post(_stoppable);
+//        cameraHandler.post(_runnable);
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        setZOrderOnTop(true);
+        setZOrderMediaOverlay(true);
+        super.onAttachedToWindow();
+    }
+
+    public void init(Bitmap bitmap) {
+        this.bitmap = bitmap;
         init();
     }
 
     private void init(){
-
-
-
         cameraThread = new HandlerThread("Camera2Thread");
         cameraThread.start();
         cameraHandler = new Handler(cameraThread.getLooper());
 
-        final Bitmap bitmap = BitmapFactory.decodeResource(getResources(),R.drawable.ic_car);
+        if (bitmap == null)
+            bitmap = BitmapFactory.decodeResource(getResources(),R.drawable.sh);
+
+//        setBackgroundResource(R.mipmap.transparent_icon);
+//        setBackgroundColor(Color.TRANSPARENT);
+//        setZOrderOnTop(true);
+//        setZOrderMediaOverlay(true);
+        getHolder().setFormat(PixelFormat.TRANSPARENT);
 
         initCamera2();
         getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder surfaceHolder) {
-                cameraHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        mEglUtils.initEGL(getHolder().getSurface());
-                        GLES20.glEnable(GLES20.GL_BLEND);
-                        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
-                        mRenderer.initShader();
-                        videoRenderer.initShader();
-//                        bitmapRenderer.initShader(bitmap);
-                        drawRenderer.initShader();
-                        imageRenderer.initShader();
-                        imageRenderer.setBitmap(bitmap);
-                        videoRenderer.setOnFrameAvailableListener(new SurfaceTexture.OnFrameAvailableListener() {
-                            @Override
-                            public void onFrameAvailable(SurfaceTexture surfaceTexture) {
-                                cameraHandler.post(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        if(mCameraCaptureSession == null){
-                                            return;
-                                        }
-                                        if(coordinate != null && !isShowImage){
-                                            isShowImage = true;
-                                            float left_up_x = coordinate[0];
-                                            float left_up_y = coordinate[1];
-                                            float right_up_x = coordinate[2];
-                                            float right_up_y = coordinate[3];
-                                            float left_down_x = coordinate[4];
-                                            float left_down_y = coordinate[5];
-                                            float right_down_x = coordinate[6];
-                                            float right_down_y = coordinate[7];
-                                            float[] positionData = new float[8];
-                                            float[] attributesData = new float[12];
-                                            float[] textureVertexData = new float[8];
-                                            float left = coordinate[0];
-                                            float top = coordinate[1];
-                                            float right = coordinate[0];
-                                            float bottom = coordinate[1];
-                                            for (int i = 2; i < coordinate.length; i+=2) {
-                                                left = Math.min(left,coordinate[i]);
-                                                top = Math.min(top,coordinate[i+1]);
-                                                right = Math.max(right,coordinate[i]);
-                                                bottom = Math.max(bottom,coordinate[i+1]);
-                                            }
-                                            float h = bottom - top;
-                                            float f = previewHeight - bottom - top;
-
-                                            textureVertexData[0] = right/previewWidth;
-                                            textureVertexData[1] = (top + h + f)/previewHeight;
-                                            textureVertexData[2] = left/previewWidth;
-                                            textureVertexData[3] = (top + h + f)/previewHeight;
-                                            textureVertexData[4] = right/previewWidth;
-                                            textureVertexData[5] = (top + f)/previewHeight;
-                                            textureVertexData[6] = left/previewWidth;
-                                            textureVertexData[7] = (top + f)/previewHeight;
-//                                            textureVertexData[0] = right/previewWidth;
-//                                            textureVertexData[1] = bottom/previewHeight;
-//                                            textureVertexData[2] = left/previewWidth;
-//                                            textureVertexData[3] = bottom/previewHeight;
-//                                            textureVertexData[4] = right/previewWidth;
-//                                            textureVertexData[5] = top/previewHeight;
-//                                            textureVertexData[6] = left/previewWidth;
-//                                            textureVertexData[7] = top/previewHeight;
-                                            drawRenderer.setVertexData(textureVertexData);
-                                            drawNonAffine(left_up_x, left_up_y,
-                                                    right_up_x, right_up_y,
-                                                    right_down_x, right_down_y,
-                                                    left_down_x, left_down_y,
-                                                    attributesData, positionData);
-                                            imageRenderer.setVertexData(positionData,attributesData);
-                                        }
-                                        videoRenderer.drawFrame();
-                                        GLES20.glClear(GLES20.GL_DEPTH_BUFFER_BIT | GLES20.GL_COLOR_BUFFER_BIT);
-                                        GLES20.glViewport(rect.left,rect.top,rect.width(),rect.height());
-//                                        bitmapRenderer.drawFrame();
-                                        mRenderer.drawFrame(videoRenderer.getTexture());
-                                        if(isShowImage){
-                                            imageRenderer.drawFrame();
-                                            GLES20.glViewport(drawRect.left,drawRect.top,drawRect.width(),drawRect.height());
-                                            drawRenderer.drawFrame(videoRenderer.getTexture());
-                                        }
-                                        mEglUtils.swap();
-                                    }
-                                });
-                            }
-                        });
-
-                        if(screenWidth != -1){
-                            openCamera2();
-                        }
-                    }
-                });
+                cameraHandler.post(_runnable);
+                if(screenWidth != -1){
+                    openCamera2();
+                }
             }
 
             @Override
@@ -222,23 +165,12 @@ public class Camera2SurfaceView extends SurfaceView {
 
             @Override
             public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
-                cameraHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if(mCameraCaptureSession != null){
-                            mCameraCaptureSession.getDevice().close();
-                            mCameraCaptureSession.close();
-                            mCameraCaptureSession = null;
-                        }
-                        GLES20.glDisable(GLES20.GL_BLEND);
-                        videoRenderer.release();
-                        drawRenderer.release();
-                        imageRenderer.release();
-                        mRenderer.release();
-                        mEglUtils.release();
-                        isShowImage = false;
-                    }
-                });
+                cameraHandler.post(_stoppable);
+                if(mCameraCaptureSession != null){
+                    mCameraCaptureSession.getDevice().close();
+                    mCameraCaptureSession.close();
+                    mCameraCaptureSession = null;
+                }
             }
         });
 
@@ -432,6 +364,108 @@ public class Camera2SurfaceView extends SurfaceView {
                 }
             }
 
+        }
+    }
+
+    private class SurfaceRunnable implements Runnable {
+        @Override
+        public void run() {
+            mEglUtils.initEGL(getHolder().getSurface());
+            GLES20.glEnable(GLES20.GL_BLEND);
+            GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+            mRenderer.initShader();
+            videoRenderer.initShader();
+//                        bitmapRenderer.initShader(bitmap);
+            drawRenderer.initShader();
+            imageRenderer.initShader();
+            imageRenderer.setBitmap(bitmap);
+            videoRenderer.setOnFrameAvailableListener(new SurfaceTexture.OnFrameAvailableListener() {
+                @Override
+                public void onFrameAvailable(SurfaceTexture surfaceTexture) {
+                    cameraHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if(mCameraCaptureSession == null){
+                                return;
+                            }
+                            if(coordinate != null && !isShowImage){
+                                isShowImage = true;
+                                float left_up_x = coordinate[0];
+                                float left_up_y = coordinate[1];
+                                float right_up_x = coordinate[2];
+                                float right_up_y = coordinate[3];
+                                float left_down_x = coordinate[4];
+                                float left_down_y = coordinate[5];
+                                float right_down_x = coordinate[6];
+                                float right_down_y = coordinate[7];
+                                float[] positionData = new float[8];
+                                float[] attributesData = new float[12];
+                                float[] textureVertexData = new float[8];
+                                float left = coordinate[0];
+                                float top = coordinate[1];
+                                float right = coordinate[0];
+                                float bottom = coordinate[1];
+                                for (int i = 2; i < coordinate.length; i+=2) {
+                                    left = Math.min(left,coordinate[i]);
+                                    top = Math.min(top,coordinate[i+1]);
+                                    right = Math.max(right,coordinate[i]);
+                                    bottom = Math.max(bottom,coordinate[i+1]);
+                                }
+                                float h = bottom - top;
+                                float f = previewHeight - bottom - top;
+
+                                textureVertexData[0] = right/previewWidth;
+                                textureVertexData[1] = (top + h + f)/previewHeight;
+                                textureVertexData[2] = left/previewWidth;
+                                textureVertexData[3] = (top + h + f)/previewHeight;
+                                textureVertexData[4] = right/previewWidth;
+                                textureVertexData[5] = (top + f)/previewHeight;
+                                textureVertexData[6] = left/previewWidth;
+                                textureVertexData[7] = (top + f)/previewHeight;
+//                                            textureVertexData[0] = right/previewWidth;
+//                                            textureVertexData[1] = bottom/previewHeight;
+//                                            textureVertexData[2] = left/previewWidth;
+//                                            textureVertexData[3] = bottom/previewHeight;
+//                                            textureVertexData[4] = right/previewWidth;
+//                                            textureVertexData[5] = top/previewHeight;
+//                                            textureVertexData[6] = left/previewWidth;
+//                                            textureVertexData[7] = top/previewHeight;
+                                drawRenderer.setVertexData(textureVertexData);
+                                drawNonAffine(left_up_x, left_up_y,
+                                        right_up_x, right_up_y,
+                                        right_down_x, right_down_y,
+                                        left_down_x, left_down_y,
+                                        attributesData, positionData);
+                                imageRenderer.setVertexData(positionData,attributesData);
+                            }
+                            videoRenderer.drawFrame();
+                            GLES20.glClear(GLES20.GL_DEPTH_BUFFER_BIT | GLES20.GL_COLOR_BUFFER_BIT);
+                            GLES20.glViewport(rect.left,rect.top,rect.width(),rect.height());
+//                                        bitmapRenderer.drawFrame();
+                            mRenderer.drawFrame(videoRenderer.getTexture());
+                            if(isShowImage){
+                                imageRenderer.drawFrame();
+                                GLES20.glViewport(drawRect.left,drawRect.top,drawRect.width(),drawRect.height());
+                                drawRenderer.drawFrame(videoRenderer.getTexture());
+                            }
+                            mEglUtils.swap();
+                        }
+                    });
+                }
+            });
+        }
+    }
+
+    private class SurfaceStoppable implements Runnable{
+        @Override
+        public void run() {
+            GLES20.glDisable(GLES20.GL_BLEND);
+            videoRenderer.release();
+            drawRenderer.release();
+            imageRenderer.release();
+            mRenderer.release();
+            mEglUtils.release();
+            isShowImage = false;
         }
     }
 }

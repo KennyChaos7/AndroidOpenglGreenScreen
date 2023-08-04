@@ -36,6 +36,7 @@ public class GLImageRenderer {
                 "void main() {\n" +
                 "   highp vec2 ig_flip_y = vTexCoord.xy / vTexCoord.z;\n" +
                 "   highp vec4 rgba = texture2D(vTexture , vec2(ig_flip_y.x , 1.0 - ig_flip_y.y));\n" +
+//                        "rgba.a = 0.0f" +
                 "   gl_FragColor = rgba;\n" +
                 "}";
         String vertexShader = "attribute vec2 aPosition;\n" +

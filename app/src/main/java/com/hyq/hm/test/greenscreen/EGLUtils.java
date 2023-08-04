@@ -1,5 +1,6 @@
 package com.hyq.hm.test.greenscreen;
 
+import android.graphics.SurfaceTexture;
 import android.opengl.EGL14;
 import android.opengl.EGLConfig;
 import android.opengl.EGLContext;
@@ -22,6 +23,10 @@ public class EGLUtils {
 
     public void initEGL(Surface surface){
         initEGL(surface,EGL14.EGL_NO_CONTEXT);
+    }
+
+    public void initEGL(SurfaceTexture surfaceTexture){
+        initEGL(surfaceTexture,EGL14.EGL_NO_CONTEXT);
     }
 
     public void initEGL(Surface surface,EGLContext eglContext) {
@@ -51,6 +56,36 @@ public class EGLUtils {
         eglCtx = EGL14.eglCreateContext(eglDis, configs[0], eglContext, ctxAttr, 0);
         createSurface(eglDis,configs[0],surface);
     }
+
+    public void initEGL(SurfaceTexture surfaceTexture,EGLContext eglContext) {
+        eglDis = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
+        int[] version = new int[2];
+        EGL14.eglInitialize(eglDis, version, 0, version, 1);
+        int confAttr[] = {
+                EGL14.EGL_SURFACE_TYPE,EGL14.EGL_WINDOW_BIT,
+                EGL14.EGL_RED_SIZE, 8,
+                EGL14.EGL_GREEN_SIZE, 8,
+                EGL14.EGL_BLUE_SIZE, 8,
+                EGL14.EGL_ALPHA_SIZE, 8,
+                EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
+                EGL_RECORDABLE_ANDROID, 1,
+                EGL14.EGL_SAMPLE_BUFFERS, 1,
+                EGL14.EGL_SAMPLES, 4,
+                EGL14.EGL_NONE
+        };
+
+        configs = new EGLConfig[1];
+        int[] numConfigs = new int[1];
+        EGL14.eglChooseConfig(eglDis, confAttr, 0, configs, 0, 1, numConfigs, 0);
+        int[] ctxAttr = {
+                EGL14.EGL_CONTEXT_CLIENT_VERSION, 2,// 0x3098
+                EGL14.EGL_NONE
+        };
+        eglCtx = EGL14.eglCreateContext(eglDis, configs[0], eglContext, ctxAttr, 0);
+        createSurface(eglDis,configs[0],surfaceTexture);
+    }
+
+
     private EGLConfig[] configs;
     public void createSurface(EGLDisplay dpy,EGLConfig config,
                               Object win){

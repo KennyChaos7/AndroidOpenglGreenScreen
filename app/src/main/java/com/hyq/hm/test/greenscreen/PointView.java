@@ -100,17 +100,17 @@ public class PointView extends View {
         });
     }
     public float[] getCoordinate(int width,int height) {
-        float vw = width*1.0f/maxRect.width();
-        float vh = height*1.0f/maxRect.height();
+        float vw = width * 1.0f / maxRect.width();
+        float vh = height * 1.0f / maxRect.height();
         float[] coordinate = new float[8];
-        coordinate[0] = vw*(points[0].x - maxRect.left);
-        coordinate[1] = height - vh*(points[0].y - maxRect.top);
-        coordinate[2] = vw*(points[2].x - maxRect.left);
-        coordinate[3] = height - vh*(points[2].y - maxRect.top);
-        coordinate[4] = vw*(points[1].x - maxRect.left);
-        coordinate[5] = height - vh*(points[1].y - maxRect.top);
-        coordinate[6] = vw*(points[3].x - maxRect.left);
-        coordinate[7] = height - vh*(points[3].y - maxRect.top);
+        coordinate[0] = vw * (points[0].x - maxRect.left);
+        coordinate[1] = height - vh * (points[0].y - maxRect.top);
+        coordinate[2] = vw * (points[2].x - maxRect.left);
+        coordinate[3] = height - vh * (points[2].y - maxRect.top);
+        coordinate[4] = vw * (points[1].x - maxRect.left);
+        coordinate[5] = height - vh * (points[1].y - maxRect.top);
+        coordinate[6] = vw * (points[3].x - maxRect.left);
+        coordinate[7] = height - vh * (points[3].y - maxRect.top);
         return coordinate;
     }
 

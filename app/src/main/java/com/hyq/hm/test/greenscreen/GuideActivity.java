@@ -94,6 +94,7 @@ public class GuideActivity extends AppCompatActivity {
             @Override
             public void run() {
                 Intent intent = new Intent(GuideActivity.this, MainActivity.class);
+//                Intent intent = new Intent(GuideActivity.this, Main22222222Activity.class);
                 startActivity(intent);
                 finish();
             }

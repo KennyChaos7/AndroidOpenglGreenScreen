@@ -112,7 +112,7 @@ public class Camera2TextureView extends TextureView {
 //                        bitmapRenderer.initShader(bitmap);
                         drawRenderer.initShader();
                         imageRenderer.initShader();
-                        imageRenderer.setBitmap(bitmap);
+                        imageRenderer.setBitmap(bitmap, true);
                         videoRenderer.setOnFrameAvailableListener(new SurfaceTexture.OnFrameAvailableListener() {
                             @Override
                             public void onFrameAvailable(SurfaceTexture surfaceTexture) {

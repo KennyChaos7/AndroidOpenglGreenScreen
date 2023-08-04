@@ -11,29 +11,8 @@
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_weight="1"/>
-    <RelativeLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_marginTop="100dp"
-        android:layout_marginLeft="200dp"
         android:layout_weight="1">
-        <FrameLayout
-            android:id="@+id/layout_content"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent">
-<!--            <com.hyq.hm.test.greenscreen.GlBackgroudSurfaceView-->
-<!--                android:layout_width="match_parent"-->
-<!--                android:layout_height="match_parent"/>-->
-<!--            <com.hyq.hm.test.greenscreen.Camera2SurfaceView-->
-<!--                android:id="@+id/camera_view"-->
-<!--                android:layout_width="match_parent"-->
-<!--                android:layout_height="match_parent"/>-->
-<!--            <com.hyq.hm.test.greenscreen.PointView-->
-<!--                android:id="@+id/point_view"-->
-<!--                android:layout_width="match_parent"-->
-<!--                android:layout_height="match_parent"/>-->
-        </FrameLayout>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -68,14 +47,47 @@
                 android:layout_height="wrap_content"
                 android:text="显示"
                 android:onClick="onImage"
-                />
+                android:visibility="gone"/>
             <Button
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="隐藏边框"
                 android:onClick="onPoint"
-                />
+                android:visibility="gone"/>
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="移动"
+                android:onClick="onMove"/>
         </LinearLayout>
+    </FrameLayout>
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_weight="1">
+        <com.hyq.hm.test.greenscreen.MovableFrameLayout
+            android:id="@+id/moving_layout"
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:layout_alignParentBottom="true"
+            android:layout_alignParentRight="true">
+<!--            <ImageView-->
+<!--                android:id="@+id/cover_iv"-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="match_parent"/>-->
+<!--            <com.hyq.hm.test.greenscreen.GlBackgroudSurfaceView-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="match_parent"/>-->
+<!--            <com.hyq.hm.test.greenscreen.Camera2SurfaceView-->
+<!--                android:id="@+id/camera_view"-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="match_parent"/>-->
+<!--            <com.hyq.hm.test.greenscreen.PointView-->
+<!--                android:id="@+id/point_view"-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="match_parent"/>-->
+        </com.hyq.hm.test.greenscreen.MovableFrameLayout>
+
 
     </RelativeLayout>
 

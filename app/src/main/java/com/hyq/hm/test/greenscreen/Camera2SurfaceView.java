@@ -23,9 +23,11 @@ import android.opengl.GLSurfaceView;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.Size;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.PermissionChecker;
@@ -81,7 +83,7 @@ public class Camera2SurfaceView extends SurfaceView {
     private Bitmap bitmap = null;
     public void setBitmap(Bitmap bitmap) {
 //        this.bitmap = bitmap;
-        imageRenderer.setBitmap(bitmap);
+        imageRenderer.setBitmap(bitmap, true);
 //        cameraHandler.post(_stoppable);
 //        cameraHandler.post(_runnable);
     }
@@ -283,6 +285,16 @@ public class Camera2SurfaceView extends SurfaceView {
         drawRenderer.setSmooth(smooth/100.0f);
     }
 
+    public void offset(float x, float y) {
+//        if (imageRenderer != null)
+//            imageRenderer.move(x, y);
+        ViewGroup parent = (ViewGroup) getParent();
+        int left = parent.getLeft();
+        int right = parent.getRight();
+        int top = parent.getTop();
+        int bottom = parent.getBottom();
+        parent.layout((int) (left - x), (int) (top - y), (int) (right - x), (int) (bottom - y));
+    }
 
     public int getPreviewWidth() {
         return previewWidth;
@@ -378,7 +390,7 @@ public class Camera2SurfaceView extends SurfaceView {
 //                        bitmapRenderer.initShader(bitmap);
             drawRenderer.initShader();
             imageRenderer.initShader();
-            imageRenderer.setBitmap(bitmap);
+            imageRenderer.setBitmap(bitmap, true);
             videoRenderer.setOnFrameAvailableListener(new SurfaceTexture.OnFrameAvailableListener() {
                 @Override
                 public void onFrameAvailable(SurfaceTexture surfaceTexture) {

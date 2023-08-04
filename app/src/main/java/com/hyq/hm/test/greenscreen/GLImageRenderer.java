@@ -3,6 +3,7 @@ package com.hyq.hm.test.greenscreen;
 import android.graphics.Bitmap;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
+import android.util.Log;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -28,6 +29,8 @@ public class GLImageRenderer {
     private int[] bos = new int[2];
     private int[] textures = new int[1];
 
+    private int _width = 0;
+    private int _height = 0;
 
     public void initShader() {
         String fragmentShader =
@@ -110,6 +113,16 @@ public class GLImageRenderer {
                 0, 2f / height, 0,
                 -1f, -1f, 1
         };
+        _width = width;
+        _height = height;
+    }
+
+    public void move(float offsetX, float offsetY) {
+        if (world != null) {
+            world[0] = world[0] - offsetX / _width;
+            world[4] = world[4] - offsetY / _height;
+            Log.e(this.getClass().getSimpleName(), "move x " + world[0] + " y " + world[4]);
+        }
     }
 
     private FloatBuffer positionBuffer;
@@ -142,13 +155,22 @@ public class GLImageRenderer {
     }
 
 
-    public void setBitmap(Bitmap bitmap){
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textures[0]);
-        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+    private Bitmap bitmap;
+    private Boolean shouldChange;
+    public void setBitmap(Bitmap bitmap, Boolean shouldChange){
+        this.bitmap = bitmap;
+        this.shouldChange = shouldChange;
     }
 
     public void drawFrame() {
+
+        if (shouldChange) {
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textures[0]);
+            GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+            shouldChange = false;
+        }
+
         GLES20.glUseProgram(programId);
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textures[0]);

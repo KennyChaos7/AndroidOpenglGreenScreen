@@ -3,7 +3,11 @@ package com.hyq.hm.test.greenscreen;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Matrix;
+import android.graphics.Paint;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Bundle;
@@ -12,6 +16,7 @@ import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -24,7 +29,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class MainActivity extends AppCompatActivity {
-    private Camera2SurfaceView cameraView;
+//    private Camera2SurfaceView cameraView;
+    private Camera2TextureView cameraView;
     private PointView pointView;
 //    private ImageView coverIv;
 
@@ -66,60 +72,42 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initCamera2ViewGreenScreen(){
-//        cameraView = findViewById(R.id.camera_view);
-//        pointView = findViewById(R.id.point_view);
-
-        movableFrameLayout = findViewById(R.id.moving_layout);
-//        contentLayout = findViewById(R.id.layout_content);
-//        final ViewGroup motherBase = findViewById(R.id.mother_base_layout);
-//        coverIv = findViewById(R.id.cover_iv);
-        cameraView = new Camera2SurfaceView(this);
-        pointView = new PointView(this);
-        pointView.setVisibility(View.INVISIBLE);
-//        contentLayout.addView(cameraView);
-//        contentLayout.addView(pointView);
-        movableFrameLayout.addView(cameraView);
-        movableFrameLayout.addView(pointView);
-//        cameraView.init(getBackgroundBitmap(cameraView, contentLayout));
-        cameraView.init(getBackgroundBitmap(cameraView, movableFrameLayout));
-        pointView.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                isRect();
-            }
-        },100);
-//        contentLayout.postDelayed(new Runnable() {
-//            @Override
-//            public void run() {
-//                cameraView.setCoordinate(pointView.getCoordinate(cameraView.getPreviewWidth(),cameraView.getPreviewHeight()),pointView.getRect());
-//            }
-//        },200);
-        movableFrameLayout.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                cameraView.setCoordinate(pointView.getCoordinate(cameraView.getPreviewWidth(),cameraView.getPreviewHeight()),pointView.getRect());
-            }
-        },200);
+        if (movableFrameLayout == null)
+            movableFrameLayout = findViewById(R.id.moving_layout);
+        if (cameraView == null && pointView == null) {
+//            cameraView = new Camera2SurfaceView(this);
+            cameraView = new Camera2TextureView(this);
+            pointView = new PointView(this);
+            pointView.setVisibility(View.INVISIBLE);
+            movableFrameLayout.addView(cameraView);
+            movableFrameLayout.addView(pointView);
+            cameraView.init(getBackgroundBitmap(
+                    cameraView, movableFrameLayout),
+                    pointView,
+                    getWindowManager().getDefaultDisplay().getRotation());
+//            pointView.postDelayed(new Runnable() {
+//                @Override
+//                public void run() {
+//                    isRect();
+//                }
+//            }, 200);
+//            movableFrameLayout.postDelayed(new Runnable() {
+//                @Override
+//                public void run() {
+//                    cameraView.setCoordinate(pointView.getCoordinate(cameraView.getPreviewWidth(), cameraView.getPreviewHeight()), pointView.getRect());
+//                }
+//            }, 200);
+        }
     }
 
     private Bitmap getBackgroundBitmap(View measureView, ViewGroup layout) {
-//        int width = imageView.getMeasuredWidth();
-//        int height = imageView.getMeasuredHeight();
-//        Bitmap bp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-//        Canvas canvas = new Canvas(bp);
-//        imageView.draw(canvas);
-//        canvas.save();
-
         View screenView = this.getWindow().getDecorView();
         if (!screenView.isDrawingCacheEnabled())
             screenView.setDrawingCacheEnabled(true);
         screenView.buildDrawingCache();
-//        motherBase.setDrawingCacheEnabled(true);
-//        motherBase.buildDrawingCache(true);
 
         //获取屏幕整张图片
         Bitmap bitmap = screenView.getDrawingCache();
-//        Bitmap bitmap = motherBase.getDrawingCache();
 
         if (bitmap != null) {
             //需要截取的长和宽
@@ -132,7 +120,9 @@ public class MainActivity extends AppCompatActivity {
 
             //从屏幕整张图片中截取指定区域
             bitmap = Bitmap.createBitmap(bitmap, viewLocationArray[0], viewLocationArray[1], outWidth, outHeight);
-            return bitmap;
+
+//            return bitmap;
+            return adjustPhotoRotation(bitmap, -90);
         }
         return bitmap;
     }
@@ -162,8 +152,6 @@ public class MainActivity extends AppCompatActivity {
 
     public void onMove(View view) {
         movableFrameLayout.move(1, cameraView, this);
-//        coverIv.setImageBitmap(getBackgroundBitmap(cameraView, movableFrameLayout));
-//        cameraView.offset(+.1f, 0);
         isRect();
         pointView.postDelayed(new Runnable() {
             @Override
@@ -175,6 +163,21 @@ public class MainActivity extends AppCompatActivity {
         },100);
     }
 
+    private boolean isOpen = true;
+
+    public void onOpenOrClose(View view) {
+        if (isOpen) {
+            isOpen = false;
+            cameraView.stop();
+            movableFrameLayout.removeAllViews();
+            cameraView = null;
+            pointView = null;
+        }
+        else {
+            initCamera2ViewGreenScreen();
+            isOpen = true;
+        }
+    }
 
     private int saveImageToGallery(Bitmap bmp) {
         //生成路径
@@ -217,5 +220,35 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return -1;
+    }
+
+    Bitmap adjustPhotoRotation(Bitmap bm, final int orientationDegree) {
+        Matrix m = new Matrix();
+        m.setRotate(orientationDegree, (float) bm.getWidth() / 2, (float) bm.getHeight() / 2);
+//        float targetX, targetY;
+//        if (orientationDegree == 90) {
+//            targetX = bm.getHeight();
+//            targetY = 0;
+//        } else {
+//            targetX = bm.getHeight();
+//            targetY = bm.getWidth();
+//        }
+//
+//        final float[] values = new float[9];
+//        m.getValues(values);
+//
+//        float x1 = values[Matrix.MTRANS_X];
+//        float y1 = values[Matrix.MTRANS_Y];
+//
+//        m.postTranslate(targetX - x1, targetY - y1);
+
+        Bitmap bm1 = Bitmap.createBitmap(bm.getHeight(), bm.getWidth(), Bitmap.Config.ARGB_8888);
+
+        Paint paint = new Paint();
+        Canvas canvas = new Canvas(bm1);
+        canvas.drawBitmap(bm, m, paint);
+
+
+        return bm1;
     }
 }

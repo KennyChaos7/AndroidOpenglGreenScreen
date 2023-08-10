@@ -6,7 +6,9 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -30,22 +32,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-@Deprecated
+
 public class Camera2TextureView extends TextureView {
-
-    private Listener listener;
-    interface Listener {
-        void onReady(Rect surfaceTexture);
-    }
-
-    public void setListener(Listener listener) {
-        this.listener = listener;
-    }
 
     private EGLUtils  mEglUtils = new EGLUtils();
     private GLVideoRenderer videoRenderer = new GLVideoRenderer();
     private GLRenderer mRenderer = new GLRenderer();
-//    private GLBitmapRenderer bitmapRenderer = new GLBitmapRenderer();
+    //    private GLBitmapRenderer bitmapRenderer = new GLBitmapRenderer();
     private GLImageRenderer imageRenderer = new GLImageRenderer();
     private GLDrawRenderer drawRenderer = new GLDrawRenderer();
 
@@ -58,6 +51,8 @@ public class Camera2TextureView extends TextureView {
     private CameraCaptureSession mCameraCaptureSession;
     private CameraDevice mCameraDevice;
     private Handler mHandler;
+    private Runnable _runnable = new SurfaceRunnable();
+    private Runnable _stoppable = new SurfaceStoppable();
 
     private int screenWidth = -1, screenHeight,previewWidth,previewHeight;
     private Rect rect = new Rect();
@@ -71,29 +66,47 @@ public class Camera2TextureView extends TextureView {
 
     public Camera2TextureView(Context context) {
         super(context);
-        init();
+//        init();
     }
 
     public Camera2TextureView(Context context, AttributeSet attrs) {
         super(context, attrs);
+//        init();
+    }
+
+
+    private PointView pointView;
+    private Bitmap bitmap = null;
+    private int rotation;
+    public void setBitmap(Bitmap bitmap) {
+//        this.bitmap = bitmap;
+        imageRenderer.setBitmap(bitmap, true);
+//        cameraHandler.post(_stoppable);
+//        cameraHandler.post(_runnable);
+    }
+
+    public void init(Bitmap bitmap, PointView pointView, int rotation) {
+        this.bitmap = bitmap;
+        this.pointView = pointView;
+        this.rotation = rotation;
         init();
     }
 
-    private Bitmap bitmap;
-    public void setBitmap(Bitmap bitmap) {
-//        this.bitmap = bitmap;
-//        imageRenderer.setBitmap(bitmap);
+    public void stop() {
+        if (mCameraDevice != null)
+        {
+            mCameraCaptureSession.close();
+            mCameraDevice.close();
+        }
     }
 
     private void init(){
-
-
-
         cameraThread = new HandlerThread("Camera2Thread");
         cameraThread.start();
         cameraHandler = new Handler(cameraThread.getLooper());
 
-        bitmap = BitmapFactory.decodeResource(getResources(),R.drawable.capture_06);
+        if (bitmap == null)
+            bitmap = BitmapFactory.decodeResource(getResources(),R.drawable.capture_06);
 
         initCamera2();
 
@@ -101,103 +114,7 @@ public class Camera2TextureView extends TextureView {
         setSurfaceTextureListener(new SurfaceTextureListener() {
             @Override
             public void onSurfaceTextureAvailable(final SurfaceTexture surface, int width, int height) {
-                cameraHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        mEglUtils.initEGL(surface);
-                        GLES20.glEnable(GLES20.GL_BLEND);
-                        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
-                        mRenderer.initShader();
-                        videoRenderer.initShader();
-//                        bitmapRenderer.initShader(bitmap);
-                        drawRenderer.initShader();
-                        imageRenderer.initShader();
-                        imageRenderer.setBitmap(bitmap, true);
-                        videoRenderer.setOnFrameAvailableListener(new SurfaceTexture.OnFrameAvailableListener() {
-                            @Override
-                            public void onFrameAvailable(SurfaceTexture surfaceTexture) {
-                                cameraHandler.post(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        if(mCameraCaptureSession == null){
-                                            return;
-                                        }
-                                        if(coordinate != null && !isShowImage){
-                                            isShowImage = true;
-                                            float left_up_x = coordinate[0];
-                                            float left_up_y = coordinate[1];
-                                            float right_up_x = coordinate[2];
-                                            float right_up_y = coordinate[3];
-                                            float left_down_x = coordinate[4];
-                                            float left_down_y = coordinate[5];
-                                            float right_down_x = coordinate[6];
-                                            float right_down_y = coordinate[7];
-                                            float[] positionData = new float[8];
-                                            float[] attributesData = new float[12];
-                                            float[] textureVertexData = new float[8];
-                                            float left = coordinate[0];
-                                            float top = coordinate[1];
-                                            float right = coordinate[0];
-                                            float bottom = coordinate[1];
-                                            for (int i = 2; i < coordinate.length; i+=2) {
-                                                left = Math.min(left,coordinate[i]);
-                                                top = Math.min(top,coordinate[i+1]);
-                                                right = Math.max(right,coordinate[i]);
-                                                bottom = Math.max(bottom,coordinate[i+1]);
-                                            }
-                                            float h = bottom - top;
-                                            float f = previewHeight - bottom - top;
-
-                                            textureVertexData[0] = right/previewWidth;
-                                            textureVertexData[1] = (top + h + f)/previewHeight;
-                                            textureVertexData[2] = left/previewWidth;
-                                            textureVertexData[3] = (top + h + f)/previewHeight;
-                                            textureVertexData[4] = right/previewWidth;
-                                            textureVertexData[5] = (top + f)/previewHeight;
-                                            textureVertexData[6] = left/previewWidth;
-                                            textureVertexData[7] = (top + f)/previewHeight;
-//                                            textureVertexData[0] = right/previewWidth;
-//                                            textureVertexData[1] = bottom/previewHeight;
-//                                            textureVertexData[2] = left/previewWidth;
-//                                            textureVertexData[3] = bottom/previewHeight;
-//                                            textureVertexData[4] = right/previewWidth;
-//                                            textureVertexData[5] = top/previewHeight;
-//                                            textureVertexData[6] = left/previewWidth;
-//                                            textureVertexData[7] = top/previewHeight;
-                                            drawRenderer.setVertexData(textureVertexData);
-                                            drawNonAffine(left_up_x, left_up_y,
-                                                    right_up_x, right_up_y,
-                                                    right_down_x, right_down_y,
-                                                    left_down_x, left_down_y,
-                                                    attributesData, positionData);
-                                            imageRenderer.setVertexData(positionData,attributesData);
-                                        }
-                                        videoRenderer.drawFrame();
-                                        GLES20.glClear(GLES20.GL_DEPTH_BUFFER_BIT | GLES20.GL_COLOR_BUFFER_BIT);
-                                        GLES20.glViewport(rect.left,rect.top,rect.width(),rect.height());
-//                                        bitmapRenderer.drawFrame();
-                                        mRenderer.drawFrame(videoRenderer.getTexture());
-                                        if(isShowImage){
-                                            imageRenderer.drawFrame();
-                                            GLES20.glViewport(drawRect.left,drawRect.top,drawRect.width(),drawRect.height());
-                                            drawRenderer.drawFrame(videoRenderer.getTexture());
-                                        }
-                                        mEglUtils.swap();
-                                    }
-                                });
-                            }
-                        });
-
-                        if(screenWidth != -1){
-                            openCamera2();
-                            listener.onReady(getRect());
-                        }
-                    }
-                });
-            }
-
-            @Override
-            public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
+                cameraHandler.post(_runnable);
                 final int sw = screenWidth;
                 screenWidth = width;
                 screenHeight = height;
@@ -207,8 +124,6 @@ public class Camera2TextureView extends TextureView {
                         Size mPreviewSize =  getPreferredPreviewSize(mSizes, screenWidth, screenHeight);
                         previewWidth = mPreviewSize.getHeight();
                         previewHeight = mPreviewSize.getWidth();
-//                        int previewWidth = mPreviewSize.getWidth();
-//                        int previewHeight = mPreviewSize.getHeight();
 
                         int left, top, viewWidth, viewHeight;
                         float sh = screenWidth * 1.0f / screenHeight;
@@ -232,30 +147,21 @@ public class Camera2TextureView extends TextureView {
                         imageRenderer.setWorld(previewWidth,previewHeight);
                         if(sw == -1){
                             openCamera2();
+                            configureTextureViewTransform(screenWidth, screenHeight);
+                            pointView.setRect(rect);
+                            setCoordinate(pointView.getCoordinate(getPreviewWidth(), getPreviewHeight()), pointView.getRect());
                         }
                     }
                 });
             }
 
             @Override
+            public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
+            }
+
+            @Override
             public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-                cameraHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if(mCameraCaptureSession != null){
-                            mCameraCaptureSession.getDevice().close();
-                            mCameraCaptureSession.close();
-                            mCameraCaptureSession = null;
-                        }
-                        GLES20.glDisable(GLES20.GL_BLEND);
-                        videoRenderer.release();
-                        drawRenderer.release();
-                        imageRenderer.release();
-                        mRenderer.release();
-                        mEglUtils.release();
-                        isShowImage = false;
-                    }
-                });
+                cameraHandler.post(_stoppable);
                 return false;
             }
 
@@ -455,6 +361,128 @@ public class Camera2TextureView extends TextureView {
                 }
             }
 
+        }
+    }
+
+    private void configureTextureViewTransform(int viewWidth, int viewHeight) {
+        Matrix matrix = new Matrix();
+        RectF viewRect = new RectF(0, 0, viewWidth, viewHeight);
+        RectF bufferRect = new RectF(0, 0, previewHeight, previewWidth);
+        float centerX = viewRect.centerX();
+        float centerY = viewRect.centerY();
+        if (Surface.ROTATION_90 == rotation || Surface.ROTATION_270 == rotation) {
+            bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY());
+            matrix.setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL);
+            float scale = Math.max(
+                    (float) viewHeight / previewHeight,
+                    (float) viewWidth / previewWidth);
+            matrix.postScale(scale, scale, centerX, centerY);
+            matrix.postRotate(90 * (rotation - 2), centerX, centerY);
+        }else if (Surface.ROTATION_180 == rotation) {
+            matrix.postRotate(180, centerX, centerY);
+        }
+        setTransform(matrix);
+    }
+
+    private class SurfaceRunnable implements Runnable {
+        @Override
+        public void run() {
+            mEglUtils.initEGL(getSurfaceTexture());
+            GLES20.glEnable(GLES20.GL_BLEND);
+            GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+            mRenderer.initShader();
+            videoRenderer.initShader();
+//                        bitmapRenderer.initShader(bitmap);
+            drawRenderer.initShader();
+            imageRenderer.initShader();
+            imageRenderer.setBitmap(bitmap, true);
+            videoRenderer.setOnFrameAvailableListener(new SurfaceTexture.OnFrameAvailableListener() {
+                @Override
+                public void onFrameAvailable(SurfaceTexture surfaceTexture) {
+                    cameraHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if(mCameraCaptureSession == null){
+                                return;
+                            }
+                            if(coordinate != null && !isShowImage){
+                                isShowImage = true;
+                                float left_up_x = coordinate[0];
+                                float left_up_y = coordinate[1];
+                                float right_up_x = coordinate[2];
+                                float right_up_y = coordinate[3];
+                                float left_down_x = coordinate[4];
+                                float left_down_y = coordinate[5];
+                                float right_down_x = coordinate[6];
+                                float right_down_y = coordinate[7];
+                                float[] positionData = new float[8];
+                                float[] attributesData = new float[12];
+                                float[] textureVertexData = new float[8];
+                                float left = coordinate[0];
+                                float top = coordinate[1];
+                                float right = coordinate[0];
+                                float bottom = coordinate[1];
+                                for (int i = 2; i < coordinate.length; i+=2) {
+                                    left = Math.min(left,coordinate[i]);
+                                    top = Math.min(top,coordinate[i+1]);
+                                    right = Math.max(right,coordinate[i]);
+                                    bottom = Math.max(bottom,coordinate[i+1]);
+                                }
+                                float h = bottom - top;
+                                float f = previewHeight - bottom - top;
+
+                                textureVertexData[0] = right/previewWidth;
+                                textureVertexData[1] = (top + h + f)/previewHeight;
+                                textureVertexData[2] = left/previewWidth;
+                                textureVertexData[3] = (top + h + f)/previewHeight;
+                                textureVertexData[4] = right/previewWidth;
+                                textureVertexData[5] = (top + f)/previewHeight;
+                                textureVertexData[6] = left/previewWidth;
+                                textureVertexData[7] = (top + f)/previewHeight;
+//                                            textureVertexData[0] = right/previewWidth;
+//                                            textureVertexData[1] = bottom/previewHeight;
+//                                            textureVertexData[2] = left/previewWidth;
+//                                            textureVertexData[3] = bottom/previewHeight;
+//                                            textureVertexData[4] = right/previewWidth;
+//                                            textureVertexData[5] = top/previewHeight;
+//                                            textureVertexData[6] = left/previewWidth;
+//                                            textureVertexData[7] = top/previewHeight;
+                                drawRenderer.setVertexData(textureVertexData);
+                                drawNonAffine(left_up_x, left_up_y,
+                                        right_up_x, right_up_y,
+                                        right_down_x, right_down_y,
+                                        left_down_x, left_down_y,
+                                        attributesData, positionData);
+                                imageRenderer.setVertexData(positionData,attributesData);
+                            }
+                            videoRenderer.drawFrame();
+                            GLES20.glClear(GLES20.GL_DEPTH_BUFFER_BIT | GLES20.GL_COLOR_BUFFER_BIT);
+                            GLES20.glViewport(rect.left,rect.top,rect.width(),rect.height());
+//                                        bitmapRenderer.drawFrame();
+                            mRenderer.drawFrame(videoRenderer.getTexture());
+                            if(isShowImage){
+                                imageRenderer.drawFrame();
+                                GLES20.glViewport(drawRect.left,drawRect.top,drawRect.width(),drawRect.height());
+                                drawRenderer.drawFrame(videoRenderer.getTexture());
+                            }
+                            mEglUtils.swap();
+                        }
+                    });
+                }
+            });
+        }
+    }
+
+    private class SurfaceStoppable implements Runnable{
+        @Override
+        public void run() {
+            GLES20.glDisable(GLES20.GL_BLEND);
+            videoRenderer.release();
+            drawRenderer.release();
+            imageRenderer.release();
+            mRenderer.release();
+            mEglUtils.release();
+            isShowImage = false;
         }
     }
 }

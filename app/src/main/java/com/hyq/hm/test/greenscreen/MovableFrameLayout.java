@@ -25,7 +25,7 @@ public class MovableFrameLayout extends FrameLayout {
         super(context, attrs, defStyleAttr, defStyleRes);
     }
 
-    public void move(int witchDirection, Camera2SurfaceView cameraView, Activity context) {
+    public void move(int witchDirection, View cameraView, Activity context) {
         //1是往左边移动，2是往上边移动，3是往右边移动，4是往下边移动
         switch (witchDirection) {
             case 1: layout(getLeft() - 30, getTop(), getRight() - 30, getBottom());break;

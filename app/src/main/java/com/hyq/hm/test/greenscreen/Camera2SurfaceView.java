@@ -8,8 +8,11 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.ImageFormat;
+import android.graphics.Matrix;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -18,6 +21,7 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.media.ImageReader;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.os.Handler;
@@ -25,6 +29,7 @@ import android.os.HandlerThread;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Size;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.ViewGroup;
@@ -55,7 +60,10 @@ public class Camera2SurfaceView extends SurfaceView {
     private CameraManager mCameraManager;
     private CameraCaptureSession mCameraCaptureSession;
     private CameraDevice mCameraDevice;
+    private CameraCharacteristics characteristics;
     private Handler mHandler;
+
+    private int orientation;
 
     private Runnable _runnable = new SurfaceRunnable();
     private Runnable _stoppable = new SurfaceStoppable();
@@ -95,9 +103,33 @@ public class Camera2SurfaceView extends SurfaceView {
         super.onAttachedToWindow();
     }
 
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        canvas = getHolder().lockCanvas();
+//        Matrix matrix = new Matrix();
+//        RectF viewRect = new RectF(0, 0, screenWidth, screenHeight);
+//        RectF bufferRect = new RectF(0, 0, previewHeight, previewWidth);
+//        float centerX = viewRect.centerX();
+//        float centerY = viewRect.centerY();
+//        bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY());
+//        matrix.setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL);
+//        matrix.postRotate(90 * (Surface.ROTATION_90 - 2), centerX, centerY);
+        canvas.rotate(90f);
+        getHolder().unlockCanvasAndPost(canvas);
+    }
+
     public void init(Bitmap bitmap) {
         this.bitmap = bitmap;
         init();
+    }
+
+    public void stop() {
+        if (mCameraDevice != null)
+        {
+            mCameraCaptureSession.close();
+            mCameraDevice.close();
+        }
     }
 
     private void init(){
@@ -188,8 +220,9 @@ public class Camera2SurfaceView extends SurfaceView {
             assert mCameraManager != null;
             String[] CameraIdList = mCameraManager.getCameraIdList();
             mCameraId = CameraIdList[0];
-            CameraCharacteristics characteristics = mCameraManager.getCameraCharacteristics(mCameraId);
+            characteristics = mCameraManager.getCameraCharacteristics(mCameraId);
             characteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL);
+            orientation = getContext().getResources().getConfiguration().orientation;
             StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             if(map != null){
                 mSizes = map.getOutputSizes(SurfaceTexture.class);
@@ -232,14 +265,22 @@ public class Camera2SurfaceView extends SurfaceView {
     private void takePreview() {
         try {
             final CaptureRequest.Builder builder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            builder.addTarget(videoRenderer.getSurface());
-            mCameraDevice.createCaptureSession(Collections.singletonList(videoRenderer.getSurface()), new CameraCaptureSession.StateCallback() {
+            Surface surface = videoRenderer.getSurface();
+//            Surface surface = this.getHolder().getSurface();
+            ImageReader imageReader = ImageReader.newInstance(previewWidth, previewHeight, ImageFormat.JPEG,1);
+            builder.addTarget(surface);
+            ArrayList<Surface> surfaceArrayList = new ArrayList<>();
+            surfaceArrayList.add(surface);
+            surfaceArrayList.add(imageReader.getSurface());
+            mCameraDevice.createCaptureSession(surfaceArrayList, new CameraCaptureSession.StateCallback() {
                 @Override
                 public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
                     if (null == mCameraDevice) return;
                     mCameraCaptureSession = cameraCaptureSession;
                     builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
                     builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
+//                    builder.set(CaptureRequest.JPEG_ORIENTATION, getJpegOrientation(characteristics, orientation));
+                    builder.set(CaptureRequest.JPEG_ORIENTATION, Surface.ROTATION_180);
                     CaptureRequest previewRequest = builder.build();
                     try {
                         mCameraCaptureSession.setRepeatingRequest(previewRequest, null, mHandler);
@@ -377,6 +418,24 @@ public class Camera2SurfaceView extends SurfaceView {
             }
 
         }
+    }
+
+    private int getJpegOrientation(CameraCharacteristics c, int deviceOrientation) {
+        if (deviceOrientation == android.view.OrientationEventListener.ORIENTATION_UNKNOWN) return 0;
+        int sensorOrientation = c.get(CameraCharacteristics.SENSOR_ORIENTATION);
+
+        // Round device orientation to a multiple of 90
+        deviceOrientation = (deviceOrientation + 45) / 90 * 90;
+
+        // Reverse device orientation for front-facing cameras
+        boolean facingFront = c.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT;
+        if (facingFront) deviceOrientation = -deviceOrientation;
+
+        // Calculate desired JPEG orientation relative to camera orientation to make
+        // the image upright relative to the device orientation
+        int jpegOrientation = (sensorOrientation + deviceOrientation + 360) % 360;
+
+        return jpegOrientation;
     }
 
     private class SurfaceRunnable implements Runnable {

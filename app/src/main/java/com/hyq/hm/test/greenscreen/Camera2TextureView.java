@@ -33,7 +33,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-public class Camera2TextureView extends TextureView {
+public class Camera2TextureView extends TextureView implements TextureView.SurfaceTextureListener{
 
     private EGLUtils  mEglUtils = new EGLUtils();
     private GLVideoRenderer videoRenderer = new GLVideoRenderer();
@@ -53,7 +53,7 @@ public class Camera2TextureView extends TextureView {
     private Handler mHandler;
     private Runnable _runnable = new SurfaceRunnable();
     private Runnable _stoppable = new SurfaceStoppable();
-
+    private StateListener stateListener;
     private int screenWidth = -1, screenHeight,previewWidth,previewHeight;
     private Rect rect = new Rect();
 
@@ -74,7 +74,6 @@ public class Camera2TextureView extends TextureView {
 //        init();
     }
 
-
     private PointView pointView;
     private Bitmap bitmap = null;
     private int rotation;
@@ -84,14 +83,12 @@ public class Camera2TextureView extends TextureView {
 //        cameraHandler.post(_stoppable);
 //        cameraHandler.post(_runnable);
     }
-
     public void init(Bitmap bitmap, PointView pointView, int rotation) {
         this.bitmap = bitmap;
         this.pointView = pointView;
         this.rotation = rotation;
         init();
     }
-
     public void stop() {
         if (mCameraDevice != null)
         {
@@ -99,6 +96,70 @@ public class Camera2TextureView extends TextureView {
             mCameraDevice.close();
         }
     }
+    public void setStateListener(StateListener stateListener) {
+        this.stateListener = stateListener;
+    }
+
+    @Override
+    public void onSurfaceTextureAvailable(final SurfaceTexture surface, int width, int height) {
+        cameraHandler.post(_runnable);
+        final int sw = screenWidth;
+        screenWidth = width;
+        screenHeight = height;
+        cameraHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                Size mPreviewSize =  getPreferredPreviewSize(mSizes, screenWidth, screenHeight);
+                previewWidth = mPreviewSize.getHeight();
+                previewHeight = mPreviewSize.getWidth();
+
+                int left, top, viewWidth, viewHeight;
+                float sh = screenWidth * 1.0f / screenHeight;
+                float vh = previewWidth * 1.0f / previewHeight;
+                if (sh < vh) {
+                    left = 0;
+                    viewWidth = screenWidth;
+                    viewHeight = (int) (previewHeight * 1.0f / previewWidth * viewWidth);
+                    top = (screenHeight - viewHeight) / 2;
+                } else {
+                    top = 0;
+                    viewHeight = screenHeight;
+                    viewWidth = (int) (previewWidth * 1.0f / previewHeight * viewHeight);
+                    left = (screenWidth - viewWidth) / 2;
+                }
+                rect.left = left;
+                rect.top = top;
+                rect.right = left + viewWidth;
+                rect.bottom = top + viewHeight;
+                videoRenderer.setSize(mPreviewSize.getWidth(),mPreviewSize.getHeight());
+                imageRenderer.setWorld(previewWidth,previewHeight);
+                if(sw == -1){
+                    openCamera2();
+                    configureTextureViewTransform(screenWidth, screenHeight);
+                    pointView.setRect(rect);
+                    setCoordinate(pointView.getCoordinate(getPreviewWidth(), getPreviewHeight()), pointView.getRect());
+                }
+            }
+        });
+        if (stateListener != null)
+            stateListener.onSurfaceTextureReady();
+    }
+
+    @Override
+    public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
+    }
+
+    @Override
+    public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+        cameraHandler.post(_stoppable);
+        return false;
+    }
+
+    @Override
+    public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+
+    }
+
 
     private void init(){
         cameraThread = new HandlerThread("Camera2Thread");
@@ -109,67 +170,7 @@ public class Camera2TextureView extends TextureView {
             bitmap = BitmapFactory.decodeResource(getResources(),R.drawable.capture_06);
 
         initCamera2();
-
-
-        setSurfaceTextureListener(new SurfaceTextureListener() {
-            @Override
-            public void onSurfaceTextureAvailable(final SurfaceTexture surface, int width, int height) {
-                cameraHandler.post(_runnable);
-                final int sw = screenWidth;
-                screenWidth = width;
-                screenHeight = height;
-                cameraHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        Size mPreviewSize =  getPreferredPreviewSize(mSizes, screenWidth, screenHeight);
-                        previewWidth = mPreviewSize.getHeight();
-                        previewHeight = mPreviewSize.getWidth();
-
-                        int left, top, viewWidth, viewHeight;
-                        float sh = screenWidth * 1.0f / screenHeight;
-                        float vh = previewWidth * 1.0f / previewHeight;
-                        if (sh < vh) {
-                            left = 0;
-                            viewWidth = screenWidth;
-                            viewHeight = (int) (previewHeight * 1.0f / previewWidth * viewWidth);
-                            top = (screenHeight - viewHeight) / 2;
-                        } else {
-                            top = 0;
-                            viewHeight = screenHeight;
-                            viewWidth = (int) (previewWidth * 1.0f / previewHeight * viewHeight);
-                            left = (screenWidth - viewWidth) / 2;
-                        }
-                        rect.left = left;
-                        rect.top = top;
-                        rect.right = left + viewWidth;
-                        rect.bottom = top + viewHeight;
-                        videoRenderer.setSize(mPreviewSize.getWidth(),mPreviewSize.getHeight());
-                        imageRenderer.setWorld(previewWidth,previewHeight);
-                        if(sw == -1){
-                            openCamera2();
-                            configureTextureViewTransform(screenWidth, screenHeight);
-                            pointView.setRect(rect);
-                            setCoordinate(pointView.getCoordinate(getPreviewWidth(), getPreviewHeight()), pointView.getRect());
-                        }
-                    }
-                });
-            }
-
-            @Override
-            public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
-            }
-
-            @Override
-            public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-                cameraHandler.post(_stoppable);
-                return false;
-            }
-
-            @Override
-            public void onSurfaceTextureUpdated(SurfaceTexture surface) {
-
-            }
-        });
+        setSurfaceTextureListener(this);
     }
 
     private Size[] mSizes;
@@ -192,6 +193,7 @@ public class Camera2TextureView extends TextureView {
             e.printStackTrace();
         }
     }
+
     @SuppressLint("WrongConstant")
     private void openCamera2(){
         if (PermissionChecker.checkSelfPermission(getContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
@@ -253,6 +255,7 @@ public class Camera2TextureView extends TextureView {
             e.printStackTrace();
         }
     }
+
     private Size getPreferredPreviewSize(Size[] sizes, int width, int height) {
         List<Size> collectorSizes = new ArrayList<>();
         for (Size option : sizes) {
@@ -276,10 +279,10 @@ public class Camera2TextureView extends TextureView {
         }
         return sizes[0];
     }
+
     public void setSmooth(float smooth){
         drawRenderer.setSmooth(smooth/100.0f);
     }
-
 
     public int getPreviewWidth() {
         return previewWidth;
@@ -484,5 +487,9 @@ public class Camera2TextureView extends TextureView {
             mEglUtils.release();
             isShowImage = false;
         }
+    }
+
+    public interface StateListener {
+        void onSurfaceTextureReady();
     }
 }
